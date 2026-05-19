@@ -87,6 +87,8 @@ financial-copilot/
 ## Screenshot
 
 ![FinCopilot Dashboard](assets/dashboard.png)
+![FinCopilot Description](assets/Description.png)
+![FinCopilot Dashboard](assets/Website.png)
 
 ---
 
