@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FinCopilot — Multi-Agent Financial Research</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <style>
+    /* ── Reset & Base ───────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0a0e1a;
+      --surface:   #111827;
+      --surface2:  #1c2539;
+      --border:    #1f2d45;
+      --accent:    #3b82f6;
+      --accent2:   #6366f1;
+      --green:     #10b981;
+      --red:       #ef4444;
+      --yellow:    #f59e0b;
+      --text:      #f1f5f9;
+      --muted:     #64748b;
+      --card-r:    12px;
+    }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.6;
+    }
+
+    /* ── Header ─────────────────────────────────────────────── */
+    header {
+      background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+      border-bottom: 1px solid var(--border);
+      padding: 0 2rem;
+    }
+    .header-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 64px;
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 1.2rem;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+    .logo-icon {
+      width: 32px;
+      height: 32px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+    }
+    .badge {
+      background: rgba(99,102,241,0.2);
+      color: #a5b4fc;
+      font-size: 0.7rem;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 20px;
+      border: 1px solid rgba(99,102,241,0.3);
+      letter-spacing: 0.5px;
+    }
+
+    /* ── Main Layout ─────────────────────────────────────────── */
+    main {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+
+    /* ── Search Bar ──────────────────────────────────────────── */
+    .search-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--card-r);
+      padding: 1.5rem 2rem;
+      margin-bottom: 2rem;
+    }
+    .search-card h2 {
+      font-size: 1rem;
+      color: var(--muted);
+      font-weight: 500;
+      margin-bottom: 1rem;
+    }
+    .search-row {
+      display: flex;
+      gap: 12px;
+      align-items: flex-end;
+      flex-wrap: wrap;
+    }
+    .input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .input-group label {
+      font-size: 0.75rem;
+      color: var(--muted);
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    input {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color .2s;
+    }
+    input:focus { border-color: var(--accent); }
+    #tickerInput { width: 140px; text-transform: uppercase; font-weight: 700; letter-spacing: 1px; }
+    #apiKeyInput { width: 340px; font-size: 0.85rem; }
+
+    .btn {
+      padding: 10px 24px;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .2s;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #fff;
+    }
+    .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+    .quick-tickers {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+      flex-wrap: wrap;
+    }
+    .ticker-chip {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 0.8rem;
+      font-weight: 600;
+      padding: 4px 12px;
+      border-radius: 20px;
+      cursor: pointer;
+      transition: all .2s;
+    }
+    .ticker-chip:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* ── Agent Pipeline ──────────────────────────────────────── */
+    .pipeline {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-bottom: 2rem;
+    }
+    .agent-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--card-r);
+      padding: 1.25rem;
+      transition: all .3s;
+      position: relative;
+      overflow: hidden;
+    }
+    .agent-card.running {
+      border-color: var(--accent);
+      box-shadow: 0 0 20px rgba(59,130,246,0.15);
+    }
+    .agent-card.done {
+      border-color: var(--green);
+      box-shadow: 0 0 20px rgba(16,185,129,0.1);
+    }
+    .agent-card.error {
+      border-color: var(--red);
+    }
+    .agent-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+    .agent-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+    }
+    .agent-icon.blue  { background: rgba(59,130,246,0.15); }
+    .agent-icon.purple{ background: rgba(99,102,241,0.15); }
+    .agent-icon.green { background: rgba(16,185,129,0.15); }
+
+    .agent-status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--border);
+    }
+    .agent-status-dot.pulse {
+      background: var(--accent);
+      animation: pulse 1s infinite;
+    }
+    .agent-status-dot.done { background: var(--green); }
+    .agent-status-dot.error { background: var(--red); }
+
+    @keyframes pulse {
+      0%,100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(1.3); }
+    }
+
+    .agent-name { font-weight: 700; font-size: 0.9rem; margin-bottom: 2px; }
+    .agent-role { font-size: 0.75rem; color: var(--muted); }
+    .agent-msg {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-top: 8px;
+      min-height: 36px;
+    }
+    .agent-progress {
+      height: 3px;
+      background: var(--border);
+      border-radius: 99px;
+      margin-top: 12px;
+      overflow: hidden;
+    }
+    .agent-progress-bar {
+      height: 100%;
+      border-radius: 99px;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      width: 0%;
+      transition: width 0.5s ease;
+    }
+    .agent-progress-bar.done { width: 100%; background: var(--green); }
+    .agent-progress-bar.loading { animation: loading 1.5s infinite; }
+    @keyframes loading {
+      0% { width: 0%; }
+      50% { width: 70%; }
+      100% { width: 90%; }
+    }
+
+    /* ── Results Grid ────────────────────────────────────────── */
+    #results { display: none; }
+
+    /* Stock Overview */
+    .overview-grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 16px;
+      margin-bottom: 1.5rem;
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--card-r);
+      padding: 1.5rem;
+    }
+    .card-title {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 1rem;
+    }
+
+    .stock-header {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      margin-bottom: 1rem;
+    }
+    .stock-price { font-size: 2.5rem; font-weight: 700; letter-spacing: -1px; }
+    .stock-change {
+      font-size: 1rem;
+      font-weight: 600;
+      padding: 2px 10px;
+      border-radius: 6px;
+    }
+    .positive { color: var(--green); background: rgba(16,185,129,0.1); }
+    .negative { color: var(--red); background: rgba(239,68,68,0.1); }
+
+    .metrics-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-top: 1rem;
+    }
+    .metric {
+      background: var(--surface2);
+      border-radius: 8px;
+      padding: 10px 12px;
+    }
+    .metric-label { font-size: 0.7rem; color: var(--muted); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.3px; }
+    .metric-value { font-size: 0.95rem; font-weight: 600; }
+
+    /* Action Badge */
+    .action-badge {
+      display: inline-block;
+      font-size: 1.5rem;
+      font-weight: 800;
+      padding: 8px 20px;
+      border-radius: 10px;
+      letter-spacing: 1px;
+      margin-bottom: 12px;
+    }
+    .action-BUY  { background: rgba(16,185,129,0.15); color: var(--green); border: 1px solid rgba(16,185,129,0.3); }
+    .action-HOLD { background: rgba(245,158,11,0.15); color: var(--yellow); border: 1px solid rgba(245,158,11,0.3); }
+    .action-SELL { background: rgba(239,68,68,0.15);  color: var(--red);   border: 1px solid rgba(239,68,68,0.3);  }
+    .action-WATCH{ background: rgba(99,102,241,0.15); color: #a5b4fc;      border: 1px solid rgba(99,102,241,0.3); }
+
+    .score-ring {
+      text-align: center;
+      margin: 12px 0;
+    }
+    .score-number {
+      font-size: 3rem;
+      font-weight: 800;
+      color: var(--accent);
+      line-height: 1;
+    }
+    .score-label { font-size: 0.75rem; color: var(--muted); margin-top: 4px; }
+
+    .risk-badge {
+      display: inline-block;
+      padding: 4px 14px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      margin-top: 8px;
+    }
+    .risk-LOW      { background: rgba(16,185,129,0.15); color: var(--green); }
+    .risk-MODERATE { background: rgba(245,158,11,0.15); color: var(--yellow); }
+    .risk-HIGH     { background: rgba(239,68,68,0.15);  color: var(--red); }
+
+    /* Analysis Sections */
+    .analysis-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 1.5rem;
+    }
+    .analysis-item { margin-bottom: 14px; }
+    .analysis-item h4 {
+      font-size: 0.78rem;
+      color: var(--accent);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 5px;
+    }
+    .analysis-item p { font-size: 0.88rem; color: #cbd5e1; line-height: 1.6; }
+
+    .tag-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .tag {
+      font-size: 0.75rem;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-weight: 500;
+    }
+    .tag-green { background: rgba(16,185,129,0.12); color: var(--green); border: 1px solid rgba(16,185,129,0.2); }
+    .tag-red   { background: rgba(239,68,68,0.12);  color: var(--red);   border: 1px solid rgba(239,68,68,0.2); }
+
+    /* Thesis */
+    .thesis-box {
+      background: linear-gradient(135deg, rgba(59,130,246,0.08), rgba(99,102,241,0.08));
+      border: 1px solid rgba(99,102,241,0.25);
+      border-radius: var(--card-r);
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .thesis-box h3 {
+      font-size: 0.8rem;
+      color: #a5b4fc;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 10px;
+    }
+    .thesis-box p { font-size: 0.95rem; color: #e2e8f0; line-height: 1.7; }
+
+    /* Chart */
+    .chart-card { margin-bottom: 1.5rem; }
+    canvas { max-height: 200px; }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .pipeline { grid-template-columns: 1fr; }
+      .overview-grid { grid-template-columns: 1fr; }
+      .analysis-grid { grid-template-columns: 1fr; }
+      .metrics-row { grid-template-columns: repeat(2, 1fr); }
+      #apiKeyInput { width: 100%; }
+    }
+
+    /* Spinner */
+    .spinner {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+<!-- ── Header ──────────────────────────────────────────────────────────── -->
+<header>
+  <div class="header-inner">
+    <div class="logo">
+      <div class="logo-icon">⚡</div>
+      FinCopilot
+    </div>
+    <div class="badge">MULTI-AGENT AI · LANGGRAPH + CREWAI + CLAUDE</div>
+  </div>
+</header>
+
+<!-- ── Main ────────────────────────────────────────────────────────────── -->
+<main>
+
+  <!-- Search -->
+  <div class="search-card">
+    <h2>Multi-Agent Financial Research Copilot</h2>
+    <div class="search-row">
+      <div class="input-group">
+        <label>Stock Ticker</label>
+        <input id="tickerInput" type="text" placeholder="AAPL" maxlength="6" />
+      </div>
+      <div class="input-group">
+        <label>Claude API Key <span style="color:var(--muted);font-weight:400">(optional — uses smart fallback if empty)</span></label>
+        <input id="apiKeyInput" type="password" placeholder="sk-ant-..." />
+      </div>
+      <button class="btn btn-primary" id="analyzeBtn" onclick="startAnalysis()">
+        <span>Analyze</span>
+      </button>
+    </div>
+    <div class="quick-tickers">
+      <span style="font-size:.75rem;color:var(--muted);align-self:center">Quick picks:</span>
+      <div class="ticker-chip" onclick="setTicker('AAPL')">AAPL</div>
+      <div class="ticker-chip" onclick="setTicker('MSFT')">MSFT</div>
+      <div class="ticker-chip" onclick="setTicker('NVDA')">NVDA</div>
+      <div class="ticker-chip" onclick="setTicker('TSLA')">TSLA</div>
+      <div class="ticker-chip" onclick="setTicker('JPM')">JPM</div>
+      <div class="ticker-chip" onclick="setTicker('GOOGL')">GOOGL</div>
+      <div class="ticker-chip" onclick="setTicker('AMZN')">AMZN</div>
+    </div>
+  </div>
+
+  <!-- Agent Pipeline -->
+  <div class="pipeline">
+    <!-- Agent 1 -->
+    <div class="agent-card" id="card-market">
+      <div class="agent-header">
+        <div class="agent-icon blue">📊</div>
+        <div class="agent-status-dot" id="dot-market"></div>
+      </div>
+      <div class="agent-name">Market Data Agent</div>
+      <div class="agent-role">Real-time data · yfinance</div>
+      <div class="agent-msg" id="msg-market">Waiting for ticker...</div>
+      <div class="agent-progress"><div class="agent-progress-bar" id="bar-market"></div></div>
+    </div>
+    <!-- Agent 2 -->
+    <div class="agent-card" id="card-earnings">
+      <div class="agent-header">
+        <div class="agent-icon purple">🔬</div>
+        <div class="agent-status-dot" id="dot-earnings"></div>
+      </div>
+      <div class="agent-name">Fundamentals Agent</div>
+      <div class="agent-role">Earnings · Valuation · Claude AI</div>
+      <div class="agent-msg" id="msg-earnings">Idle</div>
+      <div class="agent-progress"><div class="agent-progress-bar" id="bar-earnings"></div></div>
+    </div>
+    <!-- Agent 3 -->
+    <div class="agent-card" id="card-risk">
+      <div class="agent-header">
+        <div class="agent-icon green">🛡️</div>
+        <div class="agent-status-dot" id="dot-risk"></div>
+      </div>
+      <div class="agent-name">Risk Analysis Agent</div>
+      <div class="agent-role">Risk · Thesis · Claude AI</div>
+      <div class="agent-msg" id="msg-risk">Idle</div>
+      <div class="agent-progress"><div class="agent-progress-bar" id="bar-risk"></div></div>
+    </div>
+  </div>
+
+  <!-- Results -->
+  <div id="results">
+
+    <!-- Overview Row -->
+    <div class="overview-grid">
+      <!-- Stock Overview -->
+      <div class="card">
+        <div class="card-title">📈 Stock Overview</div>
+        <div class="stock-header">
+          <div>
+            <div style="font-size:.85rem;color:var(--muted);font-weight:600" id="res-company"></div>
+            <div class="stock-price" id="res-price"></div>
+          </div>
+          <div class="stock-change" id="res-change"></div>
+        </div>
+        <div class="metrics-row">
+          <div class="metric">
+            <div class="metric-label">Market Cap</div>
+            <div class="metric-value" id="res-mcap"></div>
+          </div>
+          <div class="metric">
+            <div class="metric-label">P/E Ratio</div>
+            <div class="metric-value" id="res-pe"></div>
+          </div>
+          <div class="metric">
+            <div class="metric-label">Beta</div>
+            <div class="metric-value" id="res-beta"></div>
+          </div>
+          <div class="metric">
+            <div class="metric-label">52W High</div>
+            <div class="metric-value" id="res-52h"></div>
+          </div>
+          <div class="metric">
+            <div class="metric-label">52W Low</div>
+            <div class="metric-value" id="res-52l"></div>
+          </div>
+          <div class="metric">
+            <div class="metric-label">Sector</div>
+            <div class="metric-value" id="res-sector" style="font-size:.8rem"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Verdict -->
+      <div class="card" style="text-align:center">
+        <div class="card-title">🎯 AI Verdict</div>
+        <div class="action-badge" id="res-action"></div>
+        <div class="score-ring">
+          <div class="score-number" id="res-score"></div>
+          <div class="score-label">OPPORTUNITY SCORE / 100</div>
+        </div>
+        <div class="risk-badge" id="res-risk-badge"></div>
+      </div>
+    </div>
+
+    <!-- Price Chart -->
+    <div class="card chart-card">
+      <div class="card-title">📉 30-Day Price History</div>
+      <canvas id="priceChart"></canvas>
+    </div>
+
+    <!-- Investment Thesis -->
+    <div class="thesis-box">
+      <h3>🧠 Investment Thesis</h3>
+      <p id="res-thesis"></p>
+    </div>
+
+    <!-- Analysis Grid -->
+    <div class="analysis-grid">
+
+      <!-- Fundamentals -->
+      <div class="card">
+        <div class="card-title">🔬 Fundamentals Analysis</div>
+        <div class="analysis-item">
+          <h4>Revenue & Growth</h4>
+          <p id="res-revenue"></p>
+        </div>
+        <div class="analysis-item">
+          <h4>Valuation</h4>
+          <p id="res-valuation"></p>
+        </div>
+        <div class="analysis-item">
+          <h4>Profitability</h4>
+          <p id="res-profit"></p>
+        </div>
+        <div class="analysis-item">
+          <h4>Key Strengths</h4>
+          <div class="tag-list" id="res-strengths"></div>
+        </div>
+        <div class="analysis-item">
+          <h4>Key Concerns</h4>
+          <div class="tag-list" id="res-concerns"></div>
+        </div>
+      </div>
+
+      <!-- Risk -->
+      <div class="card">
+        <div class="card-title">🛡️ Risk Analysis</div>
+        <div class="analysis-item">
+          <h4>Market Risk</h4>
+          <p id="res-market-risk"></p>
+        </div>
+        <div class="analysis-item">
+          <h4>Volatility</h4>
+          <p id="res-volatility"></p>
+        </div>
+        <div class="analysis-item">
+          <h4>Downside Scenario</h4>
+          <p id="res-downside"></p>
+        </div>
+        <div class="analysis-item">
+          <h4>Upside Scenario</h4>
+          <p id="res-upside"></p>
+        </div>
+        <div class="analysis-item">
+          <h4>Risk Factors</h4>
+          <div class="tag-list" id="res-risks"></div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /results -->
+
+</main>
+
+<script>
+  let priceChart = null;
+
+  function setTicker(t) {
+    document.getElementById('tickerInput').value = t;
+  }
+
+  function setAgent(name, status, msg) {
+    const card = document.getElementById(`card-${name}`);
+    const dot  = document.getElementById(`dot-${name}`);
+    const bar  = document.getElementById(`bar-${name}`);
+    const msgEl= document.getElementById(`msg-${name}`);
+
+    card.className = `agent-card ${status}`;
+    dot.className  = `agent-status-dot ${status === 'running' ? 'pulse' : status}`;
+    msgEl.textContent = msg;
+
+    if (status === 'running') {
+      bar.className = 'agent-progress-bar loading';
+    } else if (status === 'done') {
+      bar.className = 'agent-progress-bar done';
+    } else {
+      bar.className = 'agent-progress-bar';
+    }
+  }
+
+  function resetUI() {
+    ['market','earnings','risk'].forEach(n => setAgent(n, '', 'Waiting...'));
+    document.getElementById('results').style.display = 'none';
+    if (priceChart) { priceChart.destroy(); priceChart = null; }
+  }
+
+  function drawChart(history) {
+    const ctx = document.getElementById('priceChart').getContext('2d');
+    if (priceChart) priceChart.destroy();
+    const prices = history.map(h => h.price);
+    const isUp = prices[prices.length-1] >= prices[0];
+    const color = isUp ? '#10b981' : '#ef4444';
+
+    priceChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: history.map(h => h.date),
+        datasets: [{
+          data: prices,
+          borderColor: color,
+          backgroundColor: color + '15',
+          borderWidth: 2,
+          pointRadius: 0,
+          fill: true,
+          tension: 0.4,
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { grid: { color: '#1f2d45' }, ticks: { color: '#64748b', maxTicksLimit: 8, font: { size: 11 } } },
+          y: { grid: { color: '#1f2d45' }, ticks: { color: '#64748b', callback: v => `$${v}`, font: { size: 11 } } }
+        }
+      }
+    });
+  }
+
+  function renderMarket(data) {
+    document.getElementById('res-company').textContent = `${data.ticker} · ${data.company_name}`;
+    document.getElementById('res-price').textContent = `$${data.current_price}`;
+    const chg = data.change_pct;
+    const chgEl = document.getElementById('res-change');
+    chgEl.textContent = `${chg >= 0 ? '+' : ''}${chg}%`;
+    chgEl.className = `stock-change ${chg >= 0 ? 'positive' : 'negative'}`;
+    document.getElementById('res-mcap').textContent   = data.market_cap;
+    document.getElementById('res-pe').textContent     = data.pe_ratio || 'N/A';
+    document.getElementById('res-beta').textContent   = data.beta;
+    document.getElementById('res-52h').textContent    = `$${data.week_52_high}`;
+    document.getElementById('res-52l').textContent    = `$${data.week_52_low}`;
+    document.getElementById('res-sector').textContent = data.sector;
+    if (data.price_history && data.price_history.length > 0) drawChart(data.price_history);
+  }
+
+  function renderEarnings(data) {
+    document.getElementById('res-revenue').textContent   = data.revenue_analysis;
+    document.getElementById('res-valuation').textContent = data.valuation;
+    document.getElementById('res-profit').textContent    = data.profitability;
+
+    const strEl = document.getElementById('res-strengths');
+    strEl.innerHTML = (data.key_strengths||[]).map(s => `<span class="tag tag-green">${s}</span>`).join('');
+
+    const conEl = document.getElementById('res-concerns');
+    conEl.innerHTML = (data.key_concerns||[]).map(c => `<span class="tag tag-red">${c}</span>`).join('');
+  }
+
+  function renderRisk(data) {
+    const action = (data.action || 'HOLD').toUpperCase();
+    const actionEl = document.getElementById('res-action');
+    actionEl.textContent = action;
+    actionEl.className = `action-badge action-${action}`;
+
+    document.getElementById('res-score').textContent     = data.overall_score || '–';
+    const riskBadge = document.getElementById('res-risk-badge');
+    riskBadge.textContent = `Risk: ${data.risk_rating}`;
+    riskBadge.className = `risk-badge risk-${data.risk_rating}`;
+
+    document.getElementById('res-thesis').textContent    = data.investment_thesis;
+    document.getElementById('res-market-risk').textContent = data.market_risk;
+    document.getElementById('res-volatility').textContent  = data.volatility_assessment;
+    document.getElementById('res-downside').textContent    = data.downside_scenario;
+    document.getElementById('res-upside').textContent      = data.upside_scenario;
+
+    const riskEl = document.getElementById('res-risks');
+    riskEl.innerHTML = (data.risk_factors||[]).map(r => `<span class="tag tag-red">${r}</span>`).join('');
+
+    document.getElementById('results').style.display = 'block';
+    document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  async function startAnalysis() {
+    const ticker = document.getElementById('tickerInput').value.trim().toUpperCase();
+    const apiKey = document.getElementById('apiKeyInput').value.trim();
+
+    if (!ticker) { alert('Please enter a ticker symbol'); return; }
+
+    resetUI();
+    const btn = document.getElementById('analyzeBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Analyzing...';
+
+    try {
+      const resp = await fetch('/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ticker, api_key: apiKey })
+      });
+
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop();
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          try {
+            const event = JSON.parse(line.slice(6));
+
+            if (event.agent === 'market') {
+              setAgent('market', event.status, event.message);
+              if (event.status === 'done' && event.data) renderMarket(event.data);
+            }
+            else if (event.agent === 'earnings') {
+              setAgent('earnings', event.status, event.message);
+              if (event.status === 'done' && event.data) renderEarnings(event.data);
+            }
+            else if (event.agent === 'risk') {
+              setAgent('risk', event.status, event.message);
+              if (event.status === 'done' && event.data) renderRisk(event.data);
+            }
+          } catch(e) { /* skip malformed event */ }
+        }
+      }
+    } catch (err) {
+      setAgent('market', 'error', 'Connection error. Is the server running?');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '<span>Analyze</span>';
+    }
+  }
+
+  // Enter key support
+  document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('tickerInput').addEventListener('keydown', e => {
+      if (e.key === 'Enter') startAnalysis();
+    });
+  });
+</script>
+</body>
+</html>
