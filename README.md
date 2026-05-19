@@ -84,6 +84,12 @@ financial-copilot/
 
 ---
 
+## Screenshot
+
+![FinCopilot Dashboard](assets/dashboard.png)
+
+---
+
 ## License
 
 MIT
